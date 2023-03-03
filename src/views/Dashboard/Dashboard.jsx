@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useCallback,useEffect, useState } from 'react';
 import './Dasboard.css';
 import { roundAndFormatNumber } from '../../0x';
 import { useWallet } from 'use-wallet';
@@ -28,8 +28,9 @@ import useTokenBalance from '../../hooks/useTokenBalance';
 import useTotalValueLocked from '../../hooks/useTotalValueLocked';
 import useApprove, {ApprovalState} from '../../hooks/useApprove';
 import useHarvestFromBoardroom from '../../hooks/useHarvestFromBoardroom';
-
 import useRedeemOnBoardroom from '../../hooks/useRedeemOnBoardroom';
+import {useTransactionAdder} from '../../state/transactions/hooks';
+import useHarvest from '../../hooks/useHarvest';
 
 
 const Dashboard = () => {
@@ -185,6 +186,37 @@ const Dashboard = () => {
   const {onReward} = useHarvestFromBoardroom();
 
   const { onRedeem:boardRoomWithdraw } = useRedeemOnBoardroom();
+
+  // Redeem the bonds
+
+  const {
+    contracts: {Treasury},
+  } = useBombFinance();
+
+  const [approveBond, bondPurchase] = useApprove(bombFinance.BOMB, Treasury.address);
+
+
+
+  const addTransaction = useTransactionAdder();
+
+  const handleRedeemBonds = useCallback(
+    async (amount) => {
+      const tx = await bombFinance.redeemBonds(amount);
+      addTransaction(tx, {summary: `Redeem ${amount} BBOND`});
+    },
+    [bombFinance, addTransaction],
+  );
+
+
+  // Claim rewards from bomb and bshare
+  const {onReward:onClaimBond} = useHarvest(bombBnb);
+  const {onReward:onClaimbShare} = useHarvest(bshareBank);
+
+  // deposit the amount
+  const [bombApproveStatus, bombApprove] = useApprove(bombBnb.depositToken, bombBnb.address);
+  const [bshareApproveStatus, bshareApprove] = useApprove(bshareBank.depositToken, bshareBank.address);
+
+
 
   return account && bank ? (
     <>
@@ -444,7 +476,7 @@ const Dashboard = () => {
             <span className="span9">{bombStat?.TVL}%</span>
           </div>
           <div className="claim-rewards-buttons">
-            <div className="recommended" >Claim Rewards</div>
+            <div className="recommended" onClick={onClaimBond}>Claim Rewards</div>
             <img className="claim-rewards-buttons-child" alt="" src="../group-535.svg" />
           </div>
           <div className="claim-rewards-buttons1">
@@ -465,7 +497,7 @@ const Dashboard = () => {
             <img className="icon-arrow-down-circle" alt="" src="../icon--arrowdowncircle2.svg" />
           </div>
           <div className="deposit-buttons1">
-            <div className="deposit">Deposit</div>
+            <div className="deposit" onClick={bombApprove}>Deposit</div>
             <img className="icon-arrow-down-circle" alt="" src="../icon--arrowdowncircle3.svg" />
           </div>
           <div className="bshares-container">
@@ -517,7 +549,7 @@ const Dashboard = () => {
             <span className="span9">{bshareStat?.TVL}%</span>
           </div>
           <div className="claim-rewards-buttons2">
-            <div className="recommended">Claim Rewards</div>
+            <div className="recommended" onClick={onClaimbShare}>Claim Rewards</div>
             <img className="claim-rewards-buttons-child" alt="" src="../group-5352.svg" />
           </div>
           <div className="withdraw-buttons2">
@@ -544,7 +576,7 @@ const Dashboard = () => {
             <div className="recommended">Recommended</div>
           </div>
           <div className="deposit-buttons2">
-            <div className="deposit">Deposit</div>
+            <div className="deposit"  onClick={bshareApprove}>Deposit</div>
             <img className="icon-arrow-down-circle" alt="" src="../icon--arrowdowncircle5.svg" />
           </div>
           <div className="ellipse-group">
@@ -575,11 +607,11 @@ const Dashboard = () => {
         <div className="purchase-bbond">Purchase BBond</div>
         <div className="redeem-bomb">Redeem Bomb</div>
         <div className="purchase-buttons">
-          <div className="deposit">Purchase</div>
+          <div className="deposit"  onClick={bondPurchase}>Purchase</div>
           <img className="purchase-buttons-child" alt="" src="../group-2945.svg" />
         </div>
         <div className="redeem-buttons">
-          <div className="deposit">Redeem</div>
+          <div className="deposit" onClick={handleRedeemBonds}>Redeem</div>
           <img className="icon-arrow-down-circle" alt="" src="../icon--arrowdowncircle6.svg" />
         </div>
         <div className="available-to-redeem-parent">

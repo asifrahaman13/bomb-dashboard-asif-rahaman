@@ -48,6 +48,7 @@ const ExchangeCard: React.FC<ExchangeCardProps> = ({
     contracts: {Treasury},
   } = useBombFinance();
   const [approveStatus, approve] = useApprove(fromToken, Treasury.address);
+  // console.log(fromToken)
 
   const {account} = useWallet();
   const balance = useTokenBalance(fromToken);
@@ -57,6 +58,7 @@ const ExchangeCard: React.FC<ExchangeCardProps> = ({
       description={priceDesc}
       max={balance}
       onConfirm={(value) => {
+
         onExchange(value);
         onDismiss();
       }}

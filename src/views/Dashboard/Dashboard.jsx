@@ -26,6 +26,10 @@ import useEarningsOnBoardroom from '../../hooks/useEarningsOnBoardroom';
 import useClaimRewardCheck from '../../hooks/boardroom/useClaimRewardCheck';
 import useTokenBalance from '../../hooks/useTokenBalance';
 import useTotalValueLocked from '../../hooks/useTotalValueLocked';
+import useApprove, {ApprovalState} from '../../hooks/useApprove';
+import useHarvestFromBoardroom from '../../hooks/useHarvestFromBoardroom';
+
+import useRedeemOnBoardroom from '../../hooks/useRedeemOnBoardroom';
 
 
 const Dashboard = () => {
@@ -173,6 +177,15 @@ const Dashboard = () => {
   // TVL
   const TVL = useTotalValueLocked();
 
+  // Boardfroom onClick listners
+  const [approveStatus, approve] = useApprove(bombFinance.BSHARE, bombFinance.contracts.Boardroom.address);
+
+  // Boardfroom onClick listners for claiming rewards
+
+  const {onReward} = useHarvestFromBoardroom();
+
+  const { onRedeem:boardRoomWithdraw } = useRedeemOnBoardroom();
+
   return account && bank ? (
     <>
       {/* <button onClick={abc}>click</button> */}
@@ -226,11 +239,11 @@ const Dashboard = () => {
         </div>
         <div className="stake-bshare-and">Stake BSHARE and earn BOMB every epoch</div>
         <button className="withdraw-buttons">
-          <div className="withdraw">Withdraw</div>
+          <div className="withdraw"   onClick={boardRoomWithdraw}>Withdraw</div>
           <img className="icon-arrow-down-circle" alt="" src="../icon--arrowdowncircle.svg" />
         </button>
         <div className="deposit-buttons">
-          <div className="deposit">Deposit</div>
+          <div className="deposit" onClick={approve}>Deposit</div>
           <img className="icon-arrow-down-circle" alt="" src="../icon--arrowdowncircle1.svg" />
         </div>
         <div className="daily-returns-2-container">
@@ -431,7 +444,7 @@ const Dashboard = () => {
             <span className="span9">{bombStat?.TVL}%</span>
           </div>
           <div className="claim-rewards-buttons">
-            <div className="recommended">Claim Rewards</div>
+            <div className="recommended" >Claim Rewards</div>
             <img className="claim-rewards-buttons-child" alt="" src="../group-535.svg" />
           </div>
           <div className="claim-rewards-buttons1">
@@ -625,7 +638,7 @@ const Dashboard = () => {
           <span className="span9">$1,008,430</span>
         </div>
         <div className="claim-rewards-buttons3">
-          <div className="recommended">Claim Rewards</div>
+          <div className="recommended" onClick={onReward}>Claim Rewards</div>
           <img className="group-icon" alt="" src="../group-5353.svg" />
         </div>
         <div className="dashboard-child10" />

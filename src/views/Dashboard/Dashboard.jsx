@@ -1,7 +1,7 @@
-import React, { useMemo,useEffect,useState } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import './Dasboard.css';
 import { roundAndFormatNumber } from '../../0x';
-import {useWallet} from 'use-wallet';
+import { useWallet } from 'use-wallet';
 import moment from 'moment';
 import useCurrentEpoch from '../../hooks/useCurrentEpoch';
 import useTreasuryAllocationTimes from '../../hooks/useTreasuryAllocationTimes';
@@ -13,7 +13,19 @@ import useRedeem from '../../hooks/useRedeem';
 import useBank from '../../hooks/useBank';
 import useStatsForPool from '../../hooks/useStatsForPool';
 import UnlockWallet from '../../components/UnlockWallet';
-
+import useShareStats from '../../hooks/usebShareStats';
+import useEarnings from '../../hooks/useEarnings';
+import useStakedBalance from '../../hooks/useStakedBalance';
+import useTotalStakedOnBoardroom from '../../hooks/useTotalStakedOnBoardroom';
+import { getDisplayBalance } from '../../utils/formatBalance';
+import useStakedTokenPriceInDollars from '../../hooks/useStakedTokenPriceInDollars';
+import useStakedBalanceOnBoardroom from '../../hooks/useStakedBalanceOnBoardroom';
+import useBombFinance from '../../hooks/useBombFinance';
+import useFetchBoardroomAPR from '../../hooks/useFetchBoardroomAPR';
+import useEarningsOnBoardroom from '../../hooks/useEarningsOnBoardroom';
+import useClaimRewardCheck from '../../hooks/boardroom/useClaimRewardCheck';
+import useTokenBalance from '../../hooks/useTokenBalance';
+import useTotalValueLocked from '../../hooks/useTotalValueLocked';
 
 
 const Dashboard = () => {
@@ -25,6 +37,9 @@ const Dashboard = () => {
     if (n >= 1e12) return +(n / 1e12).toFixed(1) + 'T';
   };
 
+  const bondStat = useBondStats();
+  const boardroomAPR = useFetchBoardroomAPR();
+  const bombFinance = useBombFinance();
   const bombStats = useBombStats();
   const bShareStats = usebShareStats();
   const tBondStats = useBondStats();
@@ -57,33 +72,110 @@ const Dashboard = () => {
     [tBondStats],
   );
 
- 
+  const [bankid, setBankId] = useState('BombBtcbLPBShareRewardPool');
 
-  const [bankid,setBankId]=useState("BombBtcbLPBShareRewardPool")
-
-  const abc=(e)=>{
+  const abc = (e) => {
     e.preventDefault();
-    setBankId(e.target.id)
-    console.log(bankid)
-  }
-
+    setBankId(e.target.id);
+    console.log(bankid);
+  };
 
   const bank = useBank(bankid);
-  const {account} = useWallet();
+  const { account } = useWallet();
   const { onRedeem } = useRedeem(bank);
 
-  const bombBnb = useBank("BombBtcbLPBShareRewardPool");
+  const earnings = useEarnings(bank.contract, bank.earnTokenName, bank.poolId);
+  
+  const bshareBank = useBank("BshareBnbLPBShareRewardPool");
+  const bshareEarnings = useEarnings(bshareBank.contract, bshareBank.earnTokenName, bshareBank .poolId);
+
+  const bombBnb = useBank('BombBtcbLPBShareRewardPool');
   let bombStat = useStatsForPool(bombBnb);
 
-  const bshareBnb = useBank("BshareBnbLPBShareRewardPool");
+  const bshareBnb = useBank('BshareBnbLPBShareRewardPool');
   let bshareStat = useStatsForPool(bshareBnb);
 
+  const tShareStats = useShareStats();
+
+  const tokenStats = bombStats;
+  const bshareTokenStat=bshareStat;
+
+  const tokenPriceInDollars = useMemo(
+    () => (tokenStats ? Number(tokenStats.priceInDollars).toFixed(2) : null),
+    [tokenStats],
+  );
+
+  const bshareTokePriceInDollars = useMemo(
+    () => ( bshareTokenStat ? Number( bshareTokenStat.priceInDollars).toFixed(2) : null),
+    [bshareTokenStat],
+  );
+
+  const bombearnedInDollars = (Number(tokenPriceInDollars) * Number(getDisplayBalance(earnings))).toFixed(2);
+
+  const bshareearnedInDollars = (Number(bshareTokePriceInDollars) * Number(getDisplayBalance( bshareEarnings ))).toFixed(2);
 
 
+
+
+//stack
+
+  const bshareStakedBalance = useStakedBalance(bshareBank.contract, bshareBank.poolId);
+  const stakedTokenPriceInDollars = useStakedTokenPriceInDollars(bshareBank.depositTokenName, bshareBank.depositToken);
+  const stacktokenPriceInDollars = useMemo(
+    () => (stakedTokenPriceInDollars ? stakedTokenPriceInDollars : null),
+    [stakedTokenPriceInDollars],
+  );
+  const bshareEarnedInDollars = (
+    Number(stacktokenPriceInDollars) * Number(getDisplayBalance(bshareStakedBalance, bshareBank.depositToken.decimal))
+  ).toFixed(2);
+
+
+
+  const bombStakedBalance = useStakedBalance(bombBnb.contract, bombBnb.poolId);
+  const bombstakedTokenPriceInDollars = useStakedTokenPriceInDollars(bombBnb.depositTokenName, bombBnb.depositToken);
+  const bombstacktokenPriceInDollars = useMemo(
+    () => (bombstakedTokenPriceInDollars ? bombstakedTokenPriceInDollars : null),
+    [bombstakedTokenPriceInDollars],
+  );
+  const bombEarnedInDollars = (
+    Number(bombstacktokenPriceInDollars) * Number(getDisplayBalance(bombStakedBalance, bombBnb.depositToken.decimal))
+  ).toFixed(2);
+
+
+  // boardroom
+  const stakedBalance = useStakedBalanceOnBoardroom();
+  const totalStaked = useTotalStakedOnBoardroom();
+  const boardroomTokenPriceInDollars = useStakedTokenPriceInDollars('BSHARE', bombFinance.BSHARE);
+  const boardroomPriceInDollars = useMemo(
+    () =>
+      stakedTokenPriceInDollars
+        ? (Number(boardroomTokenPriceInDollars ) * Number(getDisplayBalance(stakedBalance))).toFixed(2).toString()
+        : null,
+    [boardroomTokenPriceInDollars , stakedBalance],
+  );
+
+  // Earnings in boardroom
+
+  const boardRoomEarnings = useEarningsOnBoardroom();
+  const canClaimReward = useClaimRewardCheck();
+
+  const boardRoomEarningInDollars = useMemo(
+    () => (bombStats ? Number(bombStats.priceInDollars).toFixed(2) : null),
+    [bombStats],
+  );
+
+  const earnedInDollars = (Number(tokenPriceInDollars) * Number(getDisplayBalance(boardRoomEarnings))).toFixed(2);
+
+
+  const bondBalance = useTokenBalance(bombFinance?.BBOND);
+
+
+  // TVL
+  const TVL = useTotalValueLocked();
 
   return account && bank ? (
     <>
-    {/* <button onClick={abc}>click</button> */}
+      {/* <button onClick={abc}>click</button> */}
       <div className="dashboard">
         <img className="topology-1-icon" alt="" src="../topology1.svg" />
         <img className="dashboard-child" alt="" src="../group-3055.svg" />
@@ -103,10 +195,13 @@ const Dashboard = () => {
             </p>
             <p className="your-stake">
               <span>{`    `}</span>
-              <span className="span">6.0000</span>
+              <span className="span">
+              {getDisplayBalance(stakedBalance)}
+              </span>
             </p>
             <p className="btcb">
-              <span>≈ $1171.62</span>
+              <span>≈ ${boardroomPriceInDollars }
+              </span>
             </p>
           </div>
         </div>
@@ -117,10 +212,14 @@ const Dashboard = () => {
             </p>
             <p className="your-stake">
               <span>{`    `}</span>
-              <span className="span">{`1660.4413 `}</span>
+              <span className="span">
+                {getDisplayBalance(boardRoomEarnings)}
+              </span>
             </p>
             <p className="btcb">
-              <span>≈ $298.88</span>
+              <span>≈ $
+              {earnedInDollars}
+              </span>
             </p>
           </div>
           <img className="bomb-icon" alt="" src="../bomb@2x.png" />
@@ -140,7 +239,9 @@ const Dashboard = () => {
           </p>
           <p className="p4">
             <span className="span2">
-              <span>2%</span>
+              <span>
+                {boardroomAPR.toFixed(2)}
+              </span>
               <span className="span3"></span>
             </span>
           </p>
@@ -193,9 +294,7 @@ const Dashboard = () => {
             {formatNum(parseInt(roundAndFormatNumber(bShareTotalSupply, 2).replace(/,/g, '')))}
           </div>
           <div className="unity4">
-            <p className="your-stake">
-              ${roundAndFormatNumber(bSharePriceInDollars, 2)}
-            </p>
+            <p className="your-stake">${roundAndFormatNumber(bSharePriceInDollars, 2)}</p>
             <p className="btcb">13000 BTCB</p>
           </div>
           <img className="wmetamask-icon" alt="" src="../wmetamask@2x.png" />
@@ -209,9 +308,7 @@ const Dashboard = () => {
             {formatNum(parseInt(roundAndFormatNumber(tBondTotalSupply, 2).replace(/,/g, '')))}
           </div>
           <div className="unity8">
-            <p className="your-stake">
-            ${roundAndFormatNumber(tBondPriceInDollars, 2)}
-            </p>
+            <p className="your-stake">${roundAndFormatNumber(tBondPriceInDollars, 2)}</p>
             <p className="btcb">1.15 BTCB</p>
           </div>
           <img className="wmetamask-icon" alt="" src="../wmetamask@2x.png" />
@@ -235,14 +332,14 @@ const Dashboard = () => {
             <span className="last-epoch-twap">TVL:</span>
             <span className="span4">{` `}</span>
           </span>
-          <b className="b2">$5,002,412</b>
+          <b className="b2">
+            ${parseInt(TVL)} 
+          </b>
         </div>
         <div className="wmetamask-parent">
           <img className="wmetamask-icon2" alt="" src="../wmetamask@2x.png" />
           <div className="unity9">
-            <p className="your-stake">
-            ${roundAndFormatNumber(bombPriceInDollars, 2)}
-            </p>
+            <p className="your-stake">${roundAndFormatNumber(bombPriceInDollars, 2)}</p>
             <p className="btcb">1.05 BTCB</p>
           </div>
           <div className="unity10">
@@ -260,7 +357,9 @@ const Dashboard = () => {
         <div className="total-staked-7232-parent">
           <div className="total-staked-7232-container">
             <span>{`Total Staked:      `}</span>
-            <span className="span9">7232</span>
+            <span className="span9">
+              {getDisplayBalance(totalStaked)}
+            </span>
           </div>
           <img className="bshares-icon3" alt="" src="../bshares3@2x.png" />
         </div>
@@ -289,10 +388,12 @@ const Dashboard = () => {
               </p>
               <p className="p10">
                 <span>{`    `}</span>
-                <span className="span2">{`6.4413 `}</span>
+                <span className="span2">
+                {getDisplayBalance(earnings)}
+                </span>
               </p>
               <p className="btcb">
-                <span className="span2">≈ $298.88</span>
+                <span className="span2">≈ {bombearnedInDollars}</span>
               </p>
             </div>
           </div>
@@ -304,10 +405,13 @@ const Dashboard = () => {
               </p>
               <p className="p10">
                 <span>{`    `}</span>
-                <span className="span2">{`124.21 `}</span>
+                <span className="span2">
+                  {getDisplayBalance(bombStakedBalance)}
+                </span>
               </p>
               <p className="btcb">
-                <span className="span2">≈ $1171.62</span>
+                <span className="span2">≈ $
+                {bombEarnedInDollars}</span>
               </p>
             </div>
           </div>
@@ -317,18 +421,14 @@ const Dashboard = () => {
             </p>
             <p className="p4">
               <span className="span2">
-                <span>
-                {bombStat?.dailyAPR}%
-                </span>
+                <span>{bombStat?.dailyAPR}%</span>
                 <span className="span3"></span>
               </span>
             </p>
           </div>
           <div className="tvl-1008430">
             <span>{`TVL: `}</span>
-            <span className="span9">
-            {bombStat?.TVL}%
-            </span>
+            <span className="span9">{bombStat?.TVL}%</span>
           </div>
           <div className="claim-rewards-buttons">
             <div className="recommended">Claim Rewards</div>
@@ -339,8 +439,15 @@ const Dashboard = () => {
             <img className="claim-rewards-buttons-child" alt="" src="../group-5351.svg" />
           </div>
           <div className="withdraw-buttons1">
-            <div className="deposit" id="BombBtcbLPBShareRewardPool" onClick={(e)=>{ abc(e);onRedeem()}}>
-              Witdraw 
+            <div
+              className="deposit"
+              id="BombBtcbLPBShareRewardPool"
+              onClick={(e) => {
+                abc(e);
+                onRedeem();
+              }}
+            >
+              Witdraw
             </div>
             <img className="icon-arrow-down-circle" alt="" src="../icon--arrowdowncircle2.svg" />
           </div>
@@ -356,10 +463,12 @@ const Dashboard = () => {
               </p>
               <p className="p10">
                 <span>{`    `}</span>
-                <span className="span2">{`6.4413 `}</span>
+                <span className="span2">
+               {getDisplayBalance(bshareEarnings)}
+                </span>
               </p>
               <p className="btcb">
-                <span className="span2">≈ $298.88</span>
+                <span className="span2">≈ $ {bshareEarnedInDollars}</span>
               </p>
             </div>
           </div>
@@ -371,10 +480,14 @@ const Dashboard = () => {
               </p>
               <p className="p10">
                 <span>{`    `}</span>
-                <span className="span2">{`124.21 `}</span>
+                <span className="span2">
+                {getDisplayBalance(bshareStakedBalance)}
+                </span>
               </p>
               <p className="btcb">
-                <span className="span2">≈ $1171.62</span>
+                <span className="span2">≈ $
+                { bshareEarnedInDollars }
+                </span>
               </p>
             </div>
           </div>
@@ -383,24 +496,28 @@ const Dashboard = () => {
               <span>{`Daily Returns: `}</span>
             </p>
             <p className="p4">
-              <span className="span2">
-              {bshareStat?.dailyAPR}%
-              </span>
+              <span className="span2">{bshareStat?.dailyAPR}%</span>
             </p>
           </div>
           <div className="tvl-10084301">
             <span>{`TVL: `}</span>
-            <span className="span9">
-            {bshareStat?.TVL}%
-            </span>
+            <span className="span9">{bshareStat?.TVL}%</span>
           </div>
           <div className="claim-rewards-buttons2">
             <div className="recommended">Claim Rewards</div>
             <img className="claim-rewards-buttons-child" alt="" src="../group-5352.svg" />
           </div>
           <div className="withdraw-buttons2">
-            <div className="deposit" id="BshareBnbLPBShareRewardPool" onClick={(e)=>{ abc(e);onRedeem()}}>
-              Withdraw</div>
+            <div
+              className="deposit"
+              id="BshareBnbLPBShareRewardPool"
+              onClick={(e) => {
+                abc(e);
+                onRedeem();
+              }}
+            >
+              Withdraw
+            </div>
             <img className="icon-arrow-down-circle" alt="" src="../icon--arrowdowncircle4.svg" />
           </div>
           <b className="bshare-bnb">BSHARE-BNB</b>
@@ -438,7 +555,9 @@ const Dashboard = () => {
         <b className="bonds">{`Bonds `}</b>
         <div className="bomb-is-over">Bomb is over peg</div>
         <div className="ubond-available-in">0.0000 UBond available in wallet</div>
-        <b className="bbond-62872">BBond = 6.2872 BTCB</b>
+        <b className="bbond-62872">BBond = 
+        {Number(bondStat?.tokenInFtm).toFixed(4) || '-'}
+         BTCB</b>
         <div className="current-price-unite2">Current Price: (Bomb)^2</div>
         <div className="purchase-bbond">Purchase BBond</div>
         <div className="redeem-bomb">Redeem Bomb</div>
@@ -452,7 +571,9 @@ const Dashboard = () => {
         </div>
         <div className="available-to-redeem-parent">
           <div className="total-staked-7232-container">{`Available to redeem: `}</div>
-          <div className="div">456</div>
+          <div className="div">
+          {getDisplayBalance(bondBalance)}
+          </div>
         </div>
         <img className="bbond-icon1" alt="" src="../bbond1@2x.png" />
         <img className="bbond-icon2" alt="" src="../bbond2@2x.png" />
@@ -466,7 +587,14 @@ const Dashboard = () => {
         <div className="group-parent">
           <div className="rectangle-container">
             <div className="group-child9" />
+            <a
+                  href="https://discord.bomb.money"
+                  rel="noopener noreferrer"
+                  target="_blank"
+                  style={{ color: '#dddfee' }}
+                >
             <b className="chat-on-discord">Chat on Discord</b>
+            </a>
           </div>
           <img className="group-child10" alt="" src="../ellipse-303.svg" />
           <img className="pw4945914-1-icon" alt="" src="../pw4945914-1@2x.png" />
@@ -475,7 +603,13 @@ const Dashboard = () => {
           <div className="group-wrapper">
             <div className="group-wrapper">
               <div className="group-child11" />
+              <a
+                href="https://docs.bomb.money"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
               <b className="read-docs">Read Docs</b>
+              </a>
             </div>
           </div>
           <img className="group-child12" alt="" src="../ellipse-304.svg" />
@@ -502,20 +636,15 @@ const Dashboard = () => {
         </div>
       </div>
     </>
-      ) : !bank ? (
-        <BankNotFound />
-      ) : (
-        <UnlockWallet />
-      );
-    };
-
+  ) : !bank ? (
+    <BankNotFound />
+  ) : (
+    <UnlockWallet />
+  );
+};
 
 const BankNotFound = () => {
-  return (
-    <>
-    bank not found
-    </>
-  );
+  return <>bank not found</>;
 };
 
 export default Dashboard;
